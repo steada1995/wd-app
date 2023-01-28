@@ -1,0 +1,153 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template for creating a ecs fargate cluster
+Parameters:
+  EcrRepository:
+    Type: String
+    Description: ''
+  Release:
+    Type: String
+    Description: ''
+  Cpu:
+    Type: String
+    Description: ''
+  Memory:
+    Type: String
+    Description: ''
+  DesiredCapacity:
+    Type: String
+    Description: Number of instances to launch in your ECS cluster.
+  ProjectName:
+    Type: String
+    Description: Name of project
+  TargetGroupArn:
+    Type: String
+    Description: Arn target group alb
+  ECSCluster:
+    Type: String
+    Description: Name of cluster
+  AlbFargateSGId:
+    Type: String
+    Description: Security group id alb
+  Subnets:
+    Type: String
+    Description: Comma separated list of available subnets.
+  ServiceName:
+    Type: String
+    Description: Name of service
+  DesiredCapacity:
+    Type: Number
+    Description: Number of instances to launch in your ECS cluster.
+
+Resources:
+
+  # A role needed by ECS
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['', [!Ref ServiceName, ExecutionRole]]
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ecs-tasks.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies: []
+  
+  ECSServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ecs.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: ecs-service
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+            - elasticloadbalancing:DeregisterInstancesFromLoadBalancer
+            - elasticloadbalancing:DeregisterTargets
+            - elasticloadbalancing:Describe*
+            - elasticloadbalancing:RegisterInstancesWithLoadBalancer
+            - elasticloadbalancing:RegisterTargets
+            - ec2:Describe*
+            - ec2:AuthorizeSecurityGroupIngress
+            Resource: "*"
+      
+  WDTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      TaskRoleArn:
+        Ref: TaskRole
+      RequiresCompatibilities:
+      - FARGATE
+      ExecutionRoleArn: !Ref ExecutionRole
+      Cpu:
+        Ref: Cpu
+      Memory:
+        Ref: Memory
+      NetworkMode: awsvpc
+      ContainerDefinitions:
+      - Name:
+          Fn::Sub: ${ProjectName}-task
+        Image:
+          Fn::Sub: ${EcrRepository}:${Release}
+        Memory:
+          Ref: Memory
+        Cpu:
+          Ref: Cpu
+        PortMappings:
+        - ContainerPort: 8080
+          Protocol: tcp
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group: !Sub ECSLogGroup-${ProjectName}
+            awslogs-region: !Ref AWS::Region
+            awslogs-stream-prefix: !Ref ServiceName
+
+  WDEcsService:
+    Type: AWS::ECS::Service
+    Properties:
+      LaunchType: FARGATE
+      Cluster:
+        Ref: ECSCluster
+      DesiredCount:
+        Ref: DesiredCapacity
+      TaskDefinition:
+        Ref: WDTaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+          - Ref: AlbFargateSGId
+          Subnets:
+            Fn::Split:
+            - ','
+            - Ref: Subnets
+      LoadBalancers:
+      - TargetGroupArn:
+          Ref: TargetGroupArn
+        ContainerPort: 8080
+        ContainerName: !Sub ${ProjectName}-task

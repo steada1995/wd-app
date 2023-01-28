@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Cognito
+
+Parameters:
+  PoolName:
+    Type: String
+    Default: wd-users
+    Description: Name of this cognito pool
+  CallbackURLs:
+    Type: String
+    Description: Comma separated list of available callback urls for this cognito
+  ClientName:
+    Type: String
+    Description: OAuth2 client name
+    Default: wd-app
+  UserPoolDomainName:
+    Type: String
+    Description: Domain name for user pool
+    Default: wd
+  GoogleClientId:
+    Type: String
+    Description: Google app client id
+    NoEcho: true
+  GoogleClientSecret:
+    Type: String
+    Description: Google app client secret
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      UserPoolName: !Ref PoolName
+
+  ClientApp:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      AllowedOAuthFlows:
+        - code
+        - implicit
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+        - aws.cognito.signin.user.admin
+      CallbackURLs: !Split
+        - ","
+        - !Ref CallbackURLs
+      ClientName: !Ref ClientName
+      PreventUserExistenceErrors: ENABLED
+      SupportedIdentityProviders:
+        - Google
+      UserPoolId: !Ref UserPool
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: days
+        RefreshToken: days
+        IdToken: days
+      GenerateSecret: true
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref UserPoolDomainName
+      UserPoolId: !Ref UserPool
+
+  FederationSocialLoginGoogle:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: Google
+      ProviderDetails:
+        client_id: !Ref GoogleClientId
+        client_secret: !Ref GoogleClientSecret
+        authorize_scopes: email profile openid
+      ProviderType: Google
+      AttributeMapping:
+        email: email
+        email_verified: email_verified
+        family_name: family_name
+        given_name: given_name
+        picture: picture
+        username: sub
+
+Outputs:
+  UserPoolId:
+    Description: UserPoolId
+    Value: !Ref UserPool
+  UserPoolArn:
+    Description: UserPoolArn
+    Value: !GetAtt UserPool.Arn
+  UserPoolClientId:
+    Description: UserPoolClientId
+    Value: !Ref ClientApp
+  OAuth2Apps:
+    Description: "List of OAuth2 client Apps"
+    Value: !Join [",", [!Ref ClientApp]]

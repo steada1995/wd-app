@@ -1,0 +1,15 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Create cloudwatch resources
+
+Parameters:
+  ProjectName:
+    Type: String
+    Description: Name of WD service name.
+
+Resources:
+  CloudwatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub ECSLogGroup-${ProjectName}
+      RetentionInDays: 14

@@ -1,0 +1,124 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Infrastructure wordpress ecs app.
+
+Parameters:
+  ClusterName:
+    Type: String
+    Description: Name of ECS cluster.
+  WDRelease:
+    Type: String
+    Description: Realese WD app.
+  Cpu:
+    Type: Number
+    Description: Memory of tasks.
+  Memory:
+    Type: Number
+    Description: CPU of tasks.
+  DesiredCapacity:
+    Type: Number
+    Description: Number of instances to launch in your ECS cluster.
+  # MaxSize:
+  #   Type: Number
+  #   Description: Maximum number of instances that can be launched in your ECS cluster.
+  ProjectName:
+    Type: String
+    Description: Name of WD service name.
+  VpcId:
+    Type: String
+    Description: Id of vpc.
+  Subnets:
+    Type: String
+    Description: Comma separated list of available subnets.
+  # CallbackURLs:
+  #   Type: String
+  #   Description: Comma separated list of available callback urls for this cognito
+  # SecretName:
+  #   Type: String
+  #   Description: Name of secret manager
+  # CertificateArn:
+  #   Type: String
+  #   Description: Arn of certificate
+  # AutoScalingTargetValue:
+  #   Type: String
+  #   Description: Autoscaling target CPU utilization in percentual.
+  # PublicHostedZoneName:
+  #   Type: String
+  # AppHostname:
+  #   Type: String
+  #   Description: Hostname app
+
+Resources:
+  ECR: 
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./infrastructure/ecr.yaml
+
+  AppALB: 
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./infrastructure/alb.yaml
+      Parameters:
+        VpcId: !Ref VpcId
+        Subnets: !Ref Subnets
+        # UserPoolArn: !GetAtt Cognito.Outputs.UserPoolArn
+        # UserPoolClientId: !GetAtt Cognito.Outputs.UserPoolClientId
+        # UserPoolDomain: !Ref ProjectName
+        # CertificateArn: !Ref CertificateArn
+  
+  # Dns:
+  #   Type: AWS::Serverless::Application
+  #   Properties:
+  #     Location: ./infrastructure/dns.yaml
+  #     Parameters:
+  #       PublicHostedZoneName: !Sub ${PublicHostedZoneName}.
+  #       AppHostname: !Ref AppHostname
+  #       AlbCanonicalHostedZoneID: !GetAtt AppALB.Outputs.CanonicalHostedZoneID
+  #       AlbDnsName: !GetAtt AppALB.Outputs.DnsName
+
+  ECSCluster:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./infrastructure/ecs.yaml
+      Parameters:
+        ClusterName: !Ref ClusterName
+
+  Cloudwatch:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./infrastructure/cloudwatch.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+  
+  # Cognito:
+  #   Type: AWS::Serverless::Application
+  #   Properties:
+  #     Location: ./infrastructure/cognito.yaml
+  #     Parameters:
+  #       PoolName: !Sub ${ProjectName}-users
+  #       CallbackURLs: !Ref CallbackURLs
+  #       ClientName: !Sub ${ProjectName}-app
+  #       UserPoolDomainName: !Ref ProjectName
+  #       GoogleClientId: !Sub "{{resolve:secretsmanager:${SecretName}:SecretString:google_client_id}}"
+  #       GoogleClientSecret: !Sub "{{resolve:secretsmanager:${SecretName}:SecretString:google_client_secret}}"
+
+  WDService:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./app/wd.yaml
+      Parameters:
+        EcrRepository: !GetAtt ECR.Outputs.WDRegistry
+        Release: !Ref WDRelease
+        Cpu: !Ref Cpu
+        Memory: !Ref Memory
+        DesiredCapacity: !Ref DesiredCapacity
+        ProjectName: !Ref ProjectName
+        TargetGroupArn: !GetAtt AppALB.Outputs.TargetGroupArn
+        ECSCluster: !GetAtt ECSCluster.Outputs.ECSClusterArn
+        AlbFargateSGId: !GetAtt AppALB.Outputs.AlbFargateSGId
+        Subnets: !Ref Subnets
+        ServiceName: !Sub ${ProjectName}-service
+        DesiredCapacity: !Ref DesiredCapacity
+        # MaxSize: !Ref MaxSize
+        # AutoScalingTargetValue: !Ref AutoScalingTargetValue
+        # ClusterName: !Ref ClusterName

@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template for creating a Application load balancer
+
+Parameters:
+  PublicHostedZoneName:
+    Type: String
+    Description: todo
+  AppHostname:
+    Type: String
+    Description: Hostname app
+  AlbCanonicalHostedZoneID:
+    Type: String
+    Description: todo
+  AlbDnsName:
+    Type: String
+    Description: todo
+
+Resources:
+  AppRecordSet:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneName: !Ref PublicHostedZoneName
+      Comment: DNS name for the API
+      RecordSets:
+        - Name: !Ref AppHostname
+          Type: A
+          AliasTarget:
+            HostedZoneId: !Ref AlbCanonicalHostedZoneID
+            DNSName: !Ref AlbDnsName

@@ -1,0 +1,18 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template for creating a ecs fargate cluster
+
+Parameters:
+  ClusterName:
+    Type: String
+    Description: Name of ECS cluster.
+
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref ClusterName
+
+Outputs:
+  ECSClusterArn:
+    Description: Ecs cluster arn
+    Value: !GetAtt ECSCluster.Arn

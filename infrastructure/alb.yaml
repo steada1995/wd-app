@@ -1,0 +1,137 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template for creating a Application load balancer
+
+Parameters:
+  VpcId:
+    Type: String
+    Description: Id of vpc.
+  Subnets:
+    Type: String
+    Description: Comma separated list of available subnets.
+  # UserPoolArn:
+  #   Type: String
+  #   Description: Arn Cognito user pool
+  # UserPoolClientId:
+  #   Type: String
+  #   Description: Client id cognito user pool
+  # UserPoolDomain:
+  #   Type: String
+  #   Description: Domain cognito user pool
+  # CertificateArn:
+  #   Type: String
+  #   Default: Arn of certificate
+
+Resources:
+  AlbSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SG for the ALB
+      GroupName: AlbSGHTTP
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: 80
+          ToPort: 80
+          IpProtocol: TCP
+          Description: Inbound rule for IPv4 traffic
+        - CidrIp: 0.0.0.0/0
+          FromPort: 80
+          ToPort: 80
+          IpProtocol: TCP
+          Description: Inbound rule for https traffic
+  
+  # HTTPSAlbSG:
+  #   Type: AWS::EC2::SecurityGroup
+  #   Properties:
+  #     GroupDescription: SG for the ALB HTTPS
+  #     GroupName: AlbSGHTTPS
+  #     VpcId: !Ref VpcId
+  #     SecurityGroupIngress:
+  #       - CidrIp: 0.0.0.0/0
+  #         FromPort: 443
+  #         ToPort: 443
+  #         IpProtocol: TCP
+  #         Description: Inbound rule for IPv4 traffic
+  #       - CidrIp: 0.0.0.0/0
+  #         FromPort: 443
+  #         ToPort: 443
+  #         IpProtocol: TCP
+  #         Description: Inbound rule for https traffic
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: TargetGroup
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 8080
+      HealthCheckPath: /health
+      TargetType: ip
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref Alb
+      Port: 80
+      Protocol: HTTP
+
+  # ListenerHTTPS:
+  #   Type: "AWS::ElasticLoadBalancingV2::Listener"
+  #   Properties:
+  #     DefaultActions:
+  #       - Type: authenticate-cognito  
+  #         Order: 1
+  #         AuthenticateCognitoConfig:
+  #           OnUnauthenticatedRequest: authenticate
+  #           UserPoolArn: !Ref UserPoolArn
+  #           UserPoolClientId: !Ref UserPoolClientId
+  #           UserPoolDomain: !Ref UserPoolDomain
+  #       - Type: forward
+  #         Order: 2
+  #         TargetGroupArn: !Ref TargetGroup
+  #     LoadBalancerArn: !Ref Alb
+  #     Port: 443
+  #     Protocol: HTTPS
+  #     Certificates:
+  #       - CertificateArn: !Ref CertificateArn
+
+  FargateAlbSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SG for traffic between ALB and containers
+      GroupName: alb-containers
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          SourceSecurityGroupId: !GetAtt AlbSG.GroupId
+          Description: Inbound rule for traffic http
+        # - IpProtocol: -1
+        #   SourceSecurityGroupId: !GetAtt HTTPSAlbSG.GroupId
+        #   Description: Inbound rule for traffic https
+  
+  Alb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: Alb
+      Subnets: !Split [",", !Ref Subnets]
+      Type: application
+      SecurityGroups:
+        - !GetAtt AlbSG.GroupId
+  
+
+Outputs:
+  TargetGroupArn:
+    Description: Arn target group alb
+    Value: !Ref TargetGroup
+  AlbFargateSGId:
+    Description: Security group id of alb
+    Value: !Ref AlbSG
+  CanonicalHostedZoneID:
+    Description: todo
+    Value: !GetAtt Alb.CanonicalHostedZoneID
+  DnsName:
+    Description: Security group id of alb
+    Value: !GetAtt Alb.DNSName

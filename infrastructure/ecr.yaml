@@ -1,0 +1,14 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Container registry repositories
+
+Resources:
+  WD:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: wordpress
+
+Outputs:
+  WDRegistry:
+    Description: ECR Registry wordpress app
+    Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/wordpress
