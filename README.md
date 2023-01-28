@@ -7,9 +7,9 @@ L’obiettivo principale del progetto è fornire un installazione vergine di wor
 ![alt text](https://github.com/steada1995/wd-app/blob/master/wd.png)
 
 ### Prerequisiti
-1.aws-cli (versione 2.9.13)
-2.sam (versione 1.68.0)
-3.docker (versione 20.10.22)
+1. aws-cli (versione 2.9.13)
+2. sam (versione 1.68.0)
+3. docker (versione 20.10.22)
 
 # Parametri
 
